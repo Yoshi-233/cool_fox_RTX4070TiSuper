@@ -569,6 +569,7 @@ pub(crate) unsafe fn piece(
 ///
 /// # Safety
 /// [`piece`]'s.
+#[allow(clippy::too_many_arguments, reason = "keep the landing inputs and view selection explicit")]
 unsafe fn piece_at(
     title: usize,
     now: *const u8,
