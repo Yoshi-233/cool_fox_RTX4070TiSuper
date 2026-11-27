@@ -1,4 +1,6 @@
-# cool_fox · VIctory for Windows
+# cool_fox_RTX4070TiSuper · VIctory for Windows
+
+This RTX 4070 Ti SUPER fork integrates PRs #4–#8 from [carlm125/cool_fox](https://github.com/carlm125/cool_fox). The changes cover GFX10 shader decoding, 16-bit BGR diagnostic captures, Windows build instructions, [keyboard and mouse controls](docs/pc-controls.md), and the [performance recorder and controls sidebar](docs/windows-monitor.md).
 
 ## Build and run on Windows
 
@@ -10,7 +12,7 @@ $env:VICTORY_GAME_DIR = 'D:\Games\MyDump'
 .\Play-VIctory.cmd pareto-residency
 ```
 
-The launcher finds `target\release\victory.exe` in a source build. If you already have the Windows x64 ZIP, extract it and run the last two commands in the extracted folder.
+The launcher finds `target\release\victory.exe` in a source build. Build from `main` to use the changes listed above. The [archived Windows x64 ZIP](https://github.com/Yoshi-233/cool_fox_RTX4070TiSuper/releases/tag/pareto-residency-37a410b1) contains the older upstream build at `f4b48ad`. To run that build, extract the ZIP and run the last two commands in the extracted folder.
 
 `Play-VIctory.cmd` selects Series S and the RTX-tested residency settings. The shader cache defaults to `%LOCALAPPDATA%\VIctory\cache-pareto`. Set `VICTORY_CACHE_DIR` to choose a different cache directory. The runner requires Windows x64, an AVX2 CPU, and a Direct3D 12 GPU with shader model 6.6 and mesh shader support. The [GPU residency journal](docs/bug-journal.md) records tests on an RTX 5090.
 
