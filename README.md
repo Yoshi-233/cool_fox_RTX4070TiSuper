@@ -2,6 +2,8 @@
 
 This Windows x64 build brings the CGBJ Series S profile, keyboard and mouse controls, and a performance sidebar together for NVIDIA users. It uses the files from your own Xbox installation. The five integrated changes are from [carlm125/cool_fox](https://github.com/carlm125/cool_fox/pulls?q=is%3Apr+author%3AYoshi-233).
 
+**[Download Windows x64 preview](https://github.com/Yoshi-233/cool_fox_RTX4070TiSuper/releases/download/rtx-preview-2026.11.27/VIctory-RTX-Windows-x64.zip)** · [Release notes and SHA-256](https://github.com/Yoshi-233/cool_fox_RTX4070TiSuper/releases/tag/rtx-preview-2026.11.27)
+
 ## Tested on RTX 4070 Ti SUPER
 
 | Windows 11 test | Observation | Source |
