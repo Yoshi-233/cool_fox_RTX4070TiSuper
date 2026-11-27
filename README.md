@@ -1,6 +1,17 @@
-# cool_fox_RTX4070TiSuper · VIctory for Windows
+# VIctory for Windows · RTX 4070 Ti SUPER
 
-This RTX 4070 Ti SUPER fork integrates PRs #4–#8 from [carlm125/cool_fox](https://github.com/carlm125/cool_fox). The changes cover GFX10 shader decoding, 16-bit BGR diagnostic captures, Windows build instructions, [keyboard and mouse controls](docs/pc-controls.md), and the [performance recorder and controls sidebar](docs/windows-monitor.md).
+This Windows x64 build brings the CGBJ Series S profile, keyboard and mouse controls, and a performance sidebar together for NVIDIA users. It uses the files from your own Xbox installation. The five integrated changes are from [carlm125/cool_fox](https://github.com/carlm125/cool_fox/pulls?q=is%3Apr+author%3AYoshi-233).
+
+## Tested on RTX 4070 Ti SUPER
+
+| Windows 11 test | Observation | Source |
+| --- | --- | --- |
+| Keyboard and mouse in a playthrough | Mouse look, both mouse buttons, the driving layout, map controls and the View prompt worked with these mappings. F5 switches layouts and F6 releases the mouse. | [Input report, `6466c96`](https://github.com/carlm125/cool_fox/pull/7) |
+| Performance and controls sidebar | The live playthrough showed the controls table and runtime counters. A separate per-process Direct3D test selected the RTX 4070 Ti SUPER on a machine with Intel integrated graphics and recorded 3D utilization and dedicated memory. | [Monitor report, `16a42cf`](https://github.com/carlm125/cool_fox/pull/8) |
+
+These reports cover the feature revisions above. A scene-specific RTX frame-rate measurement with the driver version, resolution and matching CSV is still pending. The Radeon benchmark farther down was recorded on a different machine.
+
+**Windows downloads** · [Release files and build notes](https://github.com/Yoshi-233/cool_fox_RTX4070TiSuper/releases) · [Keyboard and mouse bindings](docs/pc-controls.md) · [Record FPS and hardware use](docs/windows-monitor.md)
 
 ## Build and run on Windows
 

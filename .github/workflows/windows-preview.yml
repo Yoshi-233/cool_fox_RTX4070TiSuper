@@ -1,0 +1,32 @@
+name: Windows RTX preview
+on: workflow_dispatch
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-2022
+    timeout-minutes: 50
+    env:
+      CARGO_TERM_COLOR: never
+      CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -C target-feature=+crt-static
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Select pinned Rust toolchain
+        run: rustc --version --verbose
+      - name: Build Windows x64 with diagnostic capture
+        run: cargo build --release --locked --target x86_64-pc-windows-msvc -p victory --bin victory --features diagnostics
+      - name: Package the runner and smoke-test a clean extraction
+        shell: powershell
+        run: .github/scripts/package-preview.ps1
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-rtx-preview
+          path: ${{ runner.temp }}/rtx-artifacts/*.zip
+          if-no-files-found: error
+      - name: GameInput tests
+        run: cargo test --locked -p victory-hle --lib gameinput
+      - name: Lifecycle tests
+        run: cargo test --locked -p victory-hle --lib lifecycle
+      - name: Packed BGR capture test
+        run: cargo test --locked -p victory-gpu --lib --features diagnostics packed_bgr_targets_preserve_color_and_skip_row_padding
