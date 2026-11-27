@@ -570,7 +570,8 @@ pub(crate) struct Spans {
 pub(crate) enum Rule {
     /// When it starts where the older one starts: at the same address
     /// with another length, or within the older one's first [`HEAD`]
-    /// bytes (or the older within its own). No two textures share the
+    /// bytes (or the older within its own), clipped to the texture size.
+    /// No two overlapping textures share the
     /// block of their smallest levels. A view that only reaches into the
     /// address range of an older texture's larger levels says nothing.
     #[default]
@@ -636,7 +637,10 @@ impl Spans {
         let clashing: Vec<u64> = match rule {
             Rule::Start => self
                 .by_start
-                .range(start.saturating_sub(HEAD - 1)..start.saturating_add(HEAD))
+                // A one-row palette may end before the next palette starts,
+                // even when both fit in the same 4 KiB block.
+                .range(start.saturating_sub(HEAD - 1)..end.min(start.saturating_add(HEAD)))
+                .filter(|(_, (old_end, _))| *old_end > start)
                 .map(|(at, _)| *at)
                 .collect(),
             Rule::Overlap | Rule::Never => self.overlapping(start, end),
@@ -695,7 +699,11 @@ impl Spans {
     /// The first span that starts inside `[start, end)` past the first
     /// [`HEAD`] bytes of it.
     fn next_start(&self, start: u64, end: u64) -> Option<u64> {
-        self.by_start.range(start.saturating_add(HEAD)..end).next().map(|(at, _)| *at)
+        let first = start.saturating_add(HEAD);
+        if first >= end {
+            return None;
+        }
+        self.by_start.range(first..end).next().map(|(at, _)| *at)
     }
 
     /// The slots that hold a view of the texture at `start`.
@@ -5431,6 +5439,21 @@ mod tests {
         assert!(spans.note(8, at + 0x900, at + 0x2900, false).is_empty());
         assert_eq!(spans.by_slot.get(&8), None);
         assert_eq!(spans.by_slot.len(), 3);
+    }
+
+    #[test]
+    fn packed_palettes_stale_only_the_ranges_they_replace() {
+        let mut spans = Spans::default();
+        let at = 0x10_000;
+        // Insert the middle palette last to exercise the search in both directions.
+        for (slot, offset) in [(1, 0x100), (3, 0x300), (2, 0x200)] {
+            assert!(spans.note(slot, at + offset, at + offset + 0x100, true).is_empty());
+        }
+        assert_eq!(spans.slots_in(at, at + 0x500), [1, 2, 3]);
+        assert_eq!(spans.next_start(at + 0x200, at + 0x300), None);
+        // A rewrite overlaps the middle palette and ends at the next one's start.
+        assert_eq!(spans.note(4, at + 0x280, at + 0x300, true), [2]);
+        assert_eq!(spans.slots_in(at, at + 0x500), [1, 4, 3]);
     }
 
     /// A slot written with another texture leaves its old span; the same
