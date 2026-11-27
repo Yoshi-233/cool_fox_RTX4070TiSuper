@@ -11,21 +11,35 @@ This Windows x64 build brings the CGBJ Series S profile, keyboard and mouse cont
 
 These reports cover the feature revisions above. A scene-specific RTX frame-rate measurement with the driver version, resolution and matching CSV is still pending. The Radeon benchmark farther down was recorded on a different machine.
 
-**Windows downloads** · [Release files and build notes](https://github.com/Yoshi-233/cool_fox_RTX4070TiSuper/releases) · [Keyboard and mouse bindings](docs/pc-controls.md) · [Record FPS and hardware use](docs/windows-monitor.md)
+## Run the Windows x64 preview
 
-## Build and run on Windows
+Get `VIctory-RTX-Windows-x64.zip` from [Releases](https://github.com/Yoshi-233/cool_fox_RTX4070TiSuper/releases). The preview includes the runner, launcher, diagnostic capture support and Windows monitor. You need Windows x64, an AVX2 CPU, a Direct3D 12 GPU with shader model 6.6 and mesh shaders, and your own complete title installation.
 
-Install the Rust toolchain pinned in `rust-toolchain.toml` and the MSVC C++ build tools with a Windows SDK. From PowerShell in the checkout, build the Windows runner and point the launcher at your own complete Xbox dump.
+Extract the ZIP into a new directory. Open PowerShell in that directory, set the path to the folder containing `game_scarlett_master.exe`, and start the launcher:
 
 ```powershell
-cargo build --release --locked -p victory
 $env:VICTORY_GAME_DIR = 'D:\Games\MyDump'
+$env:VICTORY_PC_CONTROLS = '1'
 .\Play-VIctory.cmd pareto-residency
 ```
 
-The launcher finds `target\release\victory.exe` in a source build. Build from `main` to use the changes listed above. The [archived Windows x64 ZIP](https://github.com/Yoshi-233/cool_fox_RTX4070TiSuper/releases/tag/pareto-residency-37a410b1) contains the older upstream build at `f4b48ad`. To run that build, extract the ZIP and run the last two commands in the extracted folder.
+Once the title is running, open a second PowerShell window in the extracted directory to show the controls and record frame statistics:
 
-`Play-VIctory.cmd` selects Series S and the RTX-tested residency settings. The shader cache defaults to `%LOCALAPPDATA%\VIctory\cache-pareto`. Set `VICTORY_CACHE_DIR` to choose a different cache directory. The runner requires Windows x64, an AVX2 CPU, and a Direct3D 12 GPU with shader model 6.6 and mesh shader support. The [GPU residency journal](docs/bug-journal.md) records tests on an RTX 5090.
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\watch.ps1
+```
+
+Windows may mark scripts from a downloaded ZIP as coming from the internet. Verify the ZIP against the SHA-256 in the release notes; if PowerShell blocks the script, unblock the verified ZIP in **Properties → Unblock**, then extract it again. The recorder saves `frames.csv`, `samples.csv` and `hardware.json` under `%TEMP%\VIctory-monitor`. [Key bindings](docs/pc-controls.md) · [Monitor guide](docs/windows-monitor.md)
+
+## Build from source
+
+Install the Rust toolchain pinned in `rust-toolchain.toml` and the MSVC C++ build tools with a Windows SDK. From PowerShell in the checkout, run:
+
+```powershell
+cargo build --release --locked -p victory --features diagnostics
+```
+
+Run the same launcher commands from the checkout. It finds `target\release\victory.exe`, selects Series S and uses `%LOCALAPPDATA%\VIctory\cache-pareto` for the shader cache. Set `VICTORY_CACHE_DIR` to choose another directory. The [older upstream ZIP at `f4b48ad`](https://github.com/Yoshi-233/cool_fox_RTX4070TiSuper/releases/tag/pareto-residency-37a410b1) is preserved separately. The [GPU residency journal](docs/bug-journal.md) records tests on an RTX 5090.
 
 ## Upstream AMD fork
 
