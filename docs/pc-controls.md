@@ -8,6 +8,13 @@ The profile starts on foot. Press **F5** upon entering or leaving a vehicle to
 switch the layout. **F6** releases or captures the mouse. Switching windows
 releases the cursor. A connected physical controller also feeds the virtual pad.
 
+With the mouse captured, press **−** or **= / +** on the number row, or the numpad
+minus/plus keys, to adjust mouse look in steps of 25 percentage points. The
+monitor shows the current percentage. The default is **125%** of the original
+mouse gain. The range is **50% to 250%**. Each launch starts at the default or
+the percentage set in `VICTORY_MOUSE_SENSITIVITY`, for example
+`$env:VICTORY_MOUSE_SENSITIVITY = '150'` in PowerShell before launching.
+
 | Xbox prompt | On foot | Driving or boating |
 | --- | --- | --- |
 | Left stick direction (L) | WASD or numpad 8/4/2/6 | A/D steer. Numpad 8/4/2/6 moves the full stick |

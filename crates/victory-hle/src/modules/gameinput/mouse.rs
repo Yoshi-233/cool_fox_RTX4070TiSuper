@@ -1,14 +1,15 @@
 //! Foreground PC controls for a title window. Raw mouse motion drives the
 //! virtual right stick. F6 gives the desktop cursor back or captures it again.
 use std::ptr::{null, null_mut};
-use std::sync::atomic::{AtomicBool, Ordering::Relaxed};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering::Relaxed};
 use std::sync::{LazyLock, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::ClientToScreen;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-    GetAsyncKeyState, VK_F5, VK_F6, VK_LBUTTON, VK_RBUTTON,
+    GetAsyncKeyState, VK_ADD, VK_F5, VK_F6, VK_LBUTTON, VK_OEM_MINUS, VK_OEM_PLUS, VK_RBUTTON,
+    VK_SUBTRACT,
 };
 use windows_sys::Win32::UI::Input::{
     GetRawInputData, MOUSE_MOVE_ABSOLUTE, MOUSE_VIRTUAL_DESKTOP, RAWINPUT, RAWINPUTDEVICE,
@@ -23,6 +24,26 @@ pub(super) fn enabled() -> bool {
     static ENABLED: OnceLock<bool> = OnceLock::new();
     *ENABLED.get_or_init(|| std::env::var_os("VICTORY_PC_CONTROLS").is_some_and(|s| s == "1"))
 }
+
+const DEFAULT_SENSITIVITY: u32 = 125;
+const SENSITIVITY_STEP: i32 = 25;
+
+fn initial_sensitivity(value: Option<&str>) -> u32 {
+    value
+        .and_then(|s| s.trim().parse::<u32>().ok())
+        .unwrap_or(DEFAULT_SENSITIVITY)
+        .clamp(50, 250)
+}
+
+fn adjusted_sensitivity(percent: u32, step: i32) -> u32 {
+    percent.saturating_add_signed(step).clamp(50, 250)
+}
+
+static SENSITIVITY: LazyLock<AtomicU32> = LazyLock::new(|| {
+    AtomicU32::new(initial_sensitivity(
+        std::env::var("VICTORY_MOUSE_SENSITIVITY").ok().as_deref(),
+    ))
+});
 
 // A small averaging window bridges the mouse report rate and the game's
 // frame rate. A stopped mouse returns completely to neutral.
@@ -43,7 +64,7 @@ impl Motion {
         }
     }
 
-    fn stick(&mut self, now: Instant) -> [f32; 2] {
+    fn stick(&mut self, now: Instant, percent: u32) -> [f32; 2] {
         let dt = self
             .sampled
             .replace(now)
@@ -61,7 +82,8 @@ impl Motion {
         for (v, delta) in self.velocity.iter_mut().zip(deltas) {
             *v += blend * (delta / (dt * 1300.0) - *v);
         }
-        let [x, y] = self.velocity;
+        let scale = percent as f32 / 100.0;
+        let [x, y] = self.velocity.map(|v| v * scale);
         let len = x.hypot(y);
         if len < 0.012 {
             return [0.0; 2];
@@ -98,6 +120,11 @@ pub(in crate::modules) fn install(hwnd: HWND) {
             return;
         }
         wm::SetPropW(hwnd, w!("victory.pc_controls"), 1usize as _);
+        wm::SetPropW(
+            hwnd,
+            w!("victory.mouse_sensitivity"),
+            SENSITIVITY.load(Relaxed) as usize as _,
+        );
     }
     RAW.get_or_init(|| {
         // Foreground delivery to the window with focus. Keep ordinary
@@ -293,6 +320,7 @@ pub(in crate::modules) fn window_message(
             // SAFETY: remove the properties while the title window still exists.
             unsafe {
                 wm::RemovePropW(hwnd, w!("victory.pc_controls"));
+                wm::RemovePropW(hwnd, w!("victory.mouse_sensitivity"));
                 wm::RemovePropW(hwnd, w!("victory.driving_keys"));
             }
         }
@@ -303,6 +331,28 @@ pub(in crate::modules) fn window_message(
             if state.window == hwnd as usize {
                 state.clip = clip_to_client(hwnd).or(state.clip);
             }
+        }
+        wm::WM_KEYDOWN
+            if matches!(wp as u16, VK_OEM_PLUS | VK_ADD | VK_OEM_MINUS | VK_SUBTRACT) =>
+        {
+            // Only a captured mouse in the focused title owns these shortcuts.
+            if lock(&CAPTURE).window != hwnd as usize {
+                return None;
+            }
+            if lp & (1 << 30) == 0 {
+                let step = if matches!(wp as u16, VK_OEM_PLUS | VK_ADD) {
+                    SENSITIVITY_STEP
+                } else {
+                    -SENSITIVITY_STEP
+                };
+                let percent = adjusted_sensitivity(SENSITIVITY.load(Relaxed), step);
+                SENSITIVITY.store(percent, Relaxed);
+                // SAFETY: a nonzero integer percentage on the owning title window.
+                unsafe {
+                    wm::SetPropW(hwnd, w!("victory.mouse_sensitivity"), percent as usize as _);
+                }
+            }
+            return Some(0);
         }
         wm::WM_KEYDOWN if wp == usize::from(VK_F5) => {
             if lp & (1 << 30) == 0 {
@@ -374,7 +424,7 @@ pub(super) fn read(keys: &[KeyState]) -> PadState {
     let held = mouse_buttons();
     state.blocked &= held;
     let pressed = held & !state.blocked;
-    let [right_x, right_y] = state.motion.stick(Instant::now());
+    let [right_x, right_y] = state.motion.stick(Instant::now(), SENSITIVITY.load(Relaxed));
     let pad = merged(keyboard, mouse_pad(pressed, right_x, right_y, driving));
     // The click-through control legend reads the virtual pad state, including
     // contextual A/B/X/Y prompts, without polling the desktop's physical keys.
@@ -417,15 +467,40 @@ mod tests {
     }
 
     #[test]
+    fn sensitivity_is_bounded_and_scales_only_the_unsaturated_stick() {
+        assert_eq!(initial_sensitivity(None), 125);
+        assert_eq!(initial_sensitivity(Some("bad")), 125);
+        assert_eq!(initial_sensitivity(Some(" 110 ")), 110);
+        assert_eq!(initial_sensitivity(Some("0")), 50);
+        assert_eq!(initial_sensitivity(Some("500")), 250);
+        assert_eq!(adjusted_sensitivity(55, -25), 50);
+        assert_eq!(adjusted_sensitivity(245, 25), 250);
+        assert_eq!(adjusted_sensitivity(125, -25), 100);
+        let t = Instant::now();
+        let sample = |percent, magnitude| {
+            let mut m = Motion::default();
+            m.add(magnitude, -magnitude, t);
+            m.stick(t, percent)
+        };
+        let [slow, y] = sample(100, 3.0);
+        let [fast, z] = sample(125, 3.0);
+        assert_eq!(slow, y);
+        assert_eq!(fast, z);
+        assert!(slow > 0.0 && fast > slow);
+        let [x, y] = sample(250, 500.0);
+        assert!((x.hypot(y) - 1.0).abs() < 0.00001);
+    }
+
+    #[test]
     fn raw_motion_turns_right_and_up_then_stops() {
         let t = Instant::now();
         let mut m = Motion::default();
         m.add(2.0, -3.0, t);
-        let [x, y] = m.stick(t);
+        let [x, y] = m.stick(t, 100);
         assert!(x > 0.0 && y > x && x.hypot(y) <= 1.00001);
-        assert_eq!(m.stick(t + Duration::from_millis(65)), [0.0; 2]);
+        assert_eq!(m.stick(t + Duration::from_millis(65), 100), [0.0; 2]);
         m.add(-900.0, 900.0, t + Duration::from_millis(73));
-        let [x, y] = m.stick(t + Duration::from_millis(73));
+        let [x, y] = m.stick(t + Duration::from_millis(73), 100);
         assert!(x < 0.0 && y < 0.0 && (x.hypot(y) - 1.0).abs() < 0.00001);
     }
 }
