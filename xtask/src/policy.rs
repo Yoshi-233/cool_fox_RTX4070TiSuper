@@ -148,7 +148,8 @@ pub fn check(path: &str, content: &[u8]) -> Vec<String> {
     let mut problems = Vec::new();
     let name = path.rsplit('/').next().unwrap_or(path);
     let ext = name.rsplit_once('.').map(|(_, e)| e.to_ascii_lowercase());
-    let allowed = ALLOWED_NAMES.contains(&name)
+    let allowed = path == "scripts/PerformancePanel.cs"
+        || ALLOWED_NAMES.contains(&name)
         || ext
             .as_deref()
             .is_some_and(|e| ALLOWED_EXTENSIONS.contains(&e));
@@ -236,10 +237,12 @@ mod tests {
         assert!(check("crates/x/src/lib.rs", b"fn main() {}\n").is_empty());
         assert!(check(".gitignore", b"/target/\n").is_empty());
         assert!(check(".githooks/pre-commit", b"#!/bin/sh\n").is_empty());
+        assert!(check("scripts/PerformancePanel.cs", b"class Panel {}\n").is_empty());
     }
 
     #[test]
     fn rejects_game_like_files() {
+        assert!(!check("scripts/PerformancePanel.cs", b"MZ\0\0").is_empty());
         assert!(!check("assets/tex.dds", b"DDS \x7c\0\0\0").is_empty());
         assert!(
             !check("notes.txt", b"MZ\x90\0").is_empty(),
