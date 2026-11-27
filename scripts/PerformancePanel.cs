@@ -73,7 +73,7 @@ public sealed class GamePanel : Form {
     private const int LogicalWidth = 342, StatsHeight = 226;
     private bool pcControls;
     private bool captured, driving;
-    private long inputFlags;
+    private long inputFlags, sensitivity;
     // Each Xbox input has one permanent row. The two columns show the actual
     // keyboard aliases and title-dependent actions in both input layouts.
     private sealed class Binding {
@@ -198,7 +198,9 @@ public sealed class GamePanel : Form {
             bool hasMouse = GetProp(h, "victory.mouse_look") != IntPtr.Zero;
             long flags = Math.Max(0, GetProp(h, "victory.pc_buttons").ToInt64() - 1);
             bool car = GetProp(h, "victory.driving_keys") != IntPtr.Zero;
-            if (captured != hasMouse || inputFlags != flags || driving != car) Invalidate();
+            long percent = GetProp(h, "victory.mouse_sensitivity").ToInt64();
+            if (captured != hasMouse || inputFlags != flags || driving != car || sensitivity != percent) Invalidate();
+            sensitivity = percent;
             captured = hasMouse; inputFlags = flags; driving = car;
             height += GuideHeader + Bindings.Length * RowHeight + GuideFooter;
         }
@@ -271,7 +273,7 @@ public sealed class GamePanel : Form {
         TextLine(g, "Left stick: numpad 8 / 4 / 2 / 6 with Num Lock.", modelFont, Muted, 14, y + 21, 317, false);
         TextLine(g, "Both stick clicks: Shift+C. Both shoulders: Tab+Q.", modelFont, Muted, 14, y + 38, 317, false);
         TextLine(g, captured ? "F6 free mouse" : "F6 capture mouse", modelFont, Accent, 14, y + 57, 112, false);
-        TextLine(g, "Actions follow the current title prompt.", modelFont, Muted, 110, y + 57, 218, true);
+        TextLine(g, sensitivity > 0 ? "Mouse look " + sensitivity + "%  (- / +)" : "Actions follow the current title prompt.", modelFont, Muted, 110, y + 57, 218, true);
 
     }
     protected override void Dispose(bool disposing) {
